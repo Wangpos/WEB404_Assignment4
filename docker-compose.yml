@@ -1,0 +1,60 @@
+# WEB404 Assignment 4 - WAF lab
+#
+#   client ──► :8080  waf  (nginx + ModSecurity v3 + OWASP CRS 4)  ──► app:5000
+#   client ──► :5001  app  (direct, UNPROTECTED - used as the baseline)
+#
+# Both ports are bound to 127.0.0.1 because the app is deliberately vulnerable.
+#
+# Tunables (environment variables or .env file):
+#   PARANOIA        CRS paranoia level 1-4             (default 1)
+#   ANOMALY_INBOUND inbound anomaly score threshold    (default 5)
+#   RULE_ENGINE     On | DetectionOnly | Off           (default On)
+#   CUSTOM_RULES    custom | none  - load our hardening rules or CRS only (default custom)
+
+services:
+  app:
+    build: ./app
+    container_name: vulnshop-app
+    ports:
+      - "127.0.0.1:5001:5000"
+    restart: unless-stopped
+
+  waf:
+    # Pinned by digest: ModSecurity v3 + OWASP CRS 4.30.0 on nginx 1.30.6
+    image: owasp/modsecurity-crs:nginx-alpine@sha256:873ce68a658d2e3b61484a8a24d215f7d15456e7ce5aec5e7114bf000d743365
+    container_name: vulnshop-waf
+    # libmodsecurity stores persistent collections (the IP collection used for
+    # brute-force lockout) in an LMDB file in the worker's working directory.
+    # The image default (/usr/share/nginx/html) is not writable by the
+    # unprivileged nginx user, so the counters silently never persist.
+    working_dir: /tmp
+    depends_on:
+      - app
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      BACKEND: "http://app:5000"
+      PARANOIA: "${PARANOIA:-1}"
+      BLOCKING_PARANOIA: "${PARANOIA:-1}"
+      ANOMALY_INBOUND: "${ANOMALY_INBOUND:-5}"
+      ANOMALY_OUTBOUND: "${ANOMALY_OUTBOUND:-4}"
+      MODSEC_RULE_ENGINE: "${RULE_ENGINE:-On}"
+      # One worker so the in-memory IP collection used for brute-force
+      # lockout is shared by every request.
+      NGINX_WORKER_PROCESSES: "1"
+      # Audit log: one JSON object per line, written to ./waf/logs
+      MODSEC_AUDIT_ENGINE: "RelevantOnly"
+      MODSEC_AUDIT_LOG_FORMAT: "JSON"
+      MODSEC_AUDIT_LOG_TYPE: "Serial"
+      MODSEC_AUDIT_LOG: "/var/log/modsecurity/audit.log"
+      MODSEC_AUDIT_LOG_PARTS: "ABHZ"
+      MODSEC_AUDIT_LOG_RELEVANT_STATUS: "^(?:5|4(?!04))"
+      # Hide the backend technology (information disclosure)
+      SERVER_HEADER: ""
+      SERVER_TOKENS: "off"
+    volumes:
+      - ./waf/rules/${CUSTOM_RULES:-custom}-before-crs.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:ro
+      - ./waf/rules/${CUSTOM_RULES:-custom}-after-crs.conf:/etc/modsecurity.d/owasp-crs/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf:ro
+      - ./waf/nginx/${CUSTOM_RULES:-custom}-hardening.conf.template:/etc/nginx/templates/conf.d/hardening.conf.template:ro
+      - ./waf/logs:/var/log/modsecurity
+    restart: unless-stopped

@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}URL preview{% endblock %}
+{% block content %}
+<h1>Link preview</h1>
+<form action="/fetch"><label>URL <input name="url" placeholder="https://example.com"></label><button>Preview</button></form>
+{% endblock %}

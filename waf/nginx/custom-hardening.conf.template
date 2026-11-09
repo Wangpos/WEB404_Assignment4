@@ -1,0 +1,17 @@
+# Loaded into the nginx http{} block of the WAF container.
+# Strip technology fingerprinting headers coming from the backend.
+proxy_hide_header X-Powered-By;
+proxy_hide_header Server;
+
+# Browser security headers (descriptor 4.7.4) added at the edge.
+more_set_headers "X-Content-Type-Options: nosniff";
+more_set_headers "X-Frame-Options: DENY";
+more_set_headers "Referrer-Policy: no-referrer";
+more_set_headers "Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; frame-ancestors 'none'";
+
+# Information disclosure (descriptor 2.4.2 "error message handling"):
+# replace every 5xx body produced by the backend (stack traces, SQL errors)
+# with the WAF's generic /50x.html page. This is needed because the
+# ModSecurity-nginx connector can DETECT leaks in the response body
+# (phase 4) but cannot reliably BLOCK them once the response has started.
+proxy_intercept_errors on;

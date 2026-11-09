@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Welcome to VulnShop</h1>
+<p>An online store with a server-side vulnerability in almost every feature.</p>
+<div class="grid">
+  <a href="/login">Login<small>SQL injection auth bypass, brute force</small></a>
+  <a href="/products?q=laptop">Product search<small>UNION / error-based SQLi</small></a>
+  <a href="/product?id=1">Product detail<small>Blind SQLi</small></a>
+  <a href="/tools/ping">Network ping tool<small>OS command injection</small></a>
+  <a href="/docs">Documentation<small>Directory traversal</small></a>
+  <a href="/upload">File upload<small>Unrestricted upload</small></a>
+  <a href="/fetch">URL preview<small>SSRF</small></a>
+  <a href="/report?year=2025">Sales report<small>Stack-trace disclosure</small></a>
+  <a href="/greet?name=guest">Greeting<small>Reflected XSS</small></a>
+</div>
+{% endblock %}

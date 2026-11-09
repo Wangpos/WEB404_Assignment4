@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Ping tool{% endblock %}
+{% block content %}
+<h1>Network diagnostics</h1>
+<form action="/tools/ping"><label>Host or IP <input name="host" placeholder="127.0.0.1"></label><button>Ping</button></form>
+{% endblock %}
